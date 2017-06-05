@@ -49,6 +49,7 @@ public class WordCountTopology {
             String sentence = sentences[_rand.nextInt(sentences.length)];
 
             // 发射该句子给Bolt
+            System.out.print("[--------------]Spout emit=" + sentence + "\n");
             _collector.emit(new Values(sentence));
         }
 
@@ -120,32 +121,37 @@ public class WordCountTopology {
         @Override
         public void declareOutputFields(OutputFieldsDeclarer declarer) {
             // 定义两个字段word和count
-            declarer.declare(new Fields("word","count"));
+            declarer.declare(new Fields("word", "count"));
         }
     }
 
     public static void main(String[] args) throws Exception {
+        System.out.print("[--------------]Start topology\n");
         // 创建一个拓扑
         TopologyBuilder builder = new TopologyBuilder();
         // 设置Spout，这个Spout的名字叫做"Spout"，设置并行度为5
-        builder.setSpout("Spout", new WordCountSpout(), 5);
+        builder.setSpout("spout", new WordCountSpout(), 1);
         // 设置分词Bolt，并行度为8，它的数据来源是spout的
-        builder.setBolt("split", new WordSplitBolt(), 8).shuffleGrouping("spout");
+        builder.setBolt("split", new WordSplitBolt(), 1).shuffleGrouping("spout");
         // 设置计数Bolt,你并行度为12，它的数据来源是split的word字段
-        builder.setBolt("count", new WordCountBolt(), 12).fieldsGrouping("split", new Fields("word"));
+        builder.setBolt("count", new WordCountBolt(), 1).fieldsGrouping("split", new Fields("word"));
 
         Config conf = new Config();
         conf.setDebug(false);
 
         if(args != null && args.length > 0){
+            System.out.print("[--------------]StormSubmitter Start\n");
             conf.setNumWorkers(3);
             StormSubmitter.submitTopology(args[0], conf, builder.createTopology());
+            System.out.print("[--------------]StormSubmitter End\n");
         }else{
-            conf.setMaxTaskParallelism(3);
+            System.out.print("[--------------]LocalCluster Start\n");
             LocalCluster cluster = new LocalCluster();
-            cluster.submitTopology("WordCount", conf, builder.createTopology() );
-            Thread.sleep(10000);
+            cluster.submitTopology("WordCount", conf, builder.createTopology());
+            System.out.print("[--------------]LocalCluster End\n");
+            Thread.sleep(60000);
             cluster.shutdown();
+            System.out.print("[--------------]Cluster Shutdown\n");
         }
     }
 }
